@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Modal from "react-modal";
+const axios = require("axios");
 
 const customStyles = {
   content: {
@@ -14,6 +15,7 @@ const customStyles = {
 
 function Table() {
   const [data, setData] = useState([]);
+  const [error, setError] = useState(false);
   const [modalIsOpen, setIsOpen] = useState(false);
   const [modalIsOpenInput, setIsOpenInput] = useState(false);
   const [details, setDetails] = useState();
@@ -25,8 +27,8 @@ function Table() {
   const [inputData, setInputData] = useState();
 
   const getData = async () => {
-    const res = await fetch("http://localhost:4000/products");
-    const dados = await res.json();
+    const res = await axios.get("http://localhost:4000/products");
+    const dados = await res.data;
 
     setData(dados);
   };
@@ -50,78 +52,70 @@ function Table() {
       setIsOpenInput(true);
       setInputDescricao(item.descricao);
       setInputCodigo(item.codigo);
-      setInputData(item.data_cadastro);
+      setInputData(
+        item.data_cadastro.slice(0, item.data_cadastro.indexOf("T"))
+      );
       setInputPreco(item.preco);
     }
   };
 
-  const salvar = async () => {
+  const salvar = () => {
+    const dadosParaSalvar = {
+      codigo: inputCodigo,
+      descricao: inputDescricao,
+      preco: inputPreco,
+      data_cadastro: inputData,
+    };
     if (isNew) {
-      const res = await fetch(`http://localhost:4000/products/`, {
-        method: "POST",
-        headers: {
-          "Content-type": "application/json; charset=UTF-8", // Indicates the content
-        },
-        body: JSON.stringify({
-          codigo: inputCodigo,
-          descricao: inputDescricao,
-          preco: inputPreco,
-          data_cadastro: inputData,
-        }),
-      });
+      axios
+        .post(`http://localhost:4000/products/`, dadosParaSalvar)
+        .then(() => {
+          const arr = [...data];
+          arr.push(dadosParaSalvar);
+          setData(arr);
+          setIsOpenInput(false);
+        });
     } else {
-      const res = await fetch(
+      axios.put(
         `http://localhost:4000/products/${selectedToEdit.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-type": "application/json; charset=UTF-8", // Indicates the content
-          },
-          body: JSON.stringify({
-            codigo: inputCodigo,
-            descricao: inputDescricao,
-            preco: inputPreco,
-            data_cadastro: inputData,
-          }),
-        }
-      );
-      const dados = await res.json();
-      return dados;
+
+        dadosParaSalvar
+      ).then(()=>{
+        const arr = [...data];
+        arr[arr.indexOf(selectedToEdit)] = dadosParaSalvar
+        setIsOpenInput(false);
+        setData(arr)
+      })
+      
     }
   };
 
   const excluir = (item) => {
     const arr = [...data];
-    arr.splice(data.indexOf(item), 1);
-    fetch(`http://localhost:4000/products/${item.id}`, {
-      method: "DELETE",
-    });
-    setData(arr);
+    axios
+      .delete(`http://localhost:4000/products/${item.id}`)
+      .then(() => {
+        arr.splice(arr.indexOf(item), 1);
+        setData(arr);
+      })
+      .catch((error) => {
+        setError(true);
+        console.log(error);
+      });
   };
 
   const detalhes = async (item) => {
-    const res = await fetch(`http://localhost:4000/products/${item.id}`);
-    const dados = await res.json();
+    const dados = await axios
+      .get(`http://localhost:4000/products/${item.id}`)
+      .catch((error) => {
+        setError(true);
+        console.log(error);
+      });
+
     setIsOpen(true);
-    setDetails(dados);
+    setDetails(dados.data);
   };
 
-  const cadastrar = async (item) => {
-    const res = await fetch(`http://localhost:4000/products/${item.id}`, {
-      method: "POST",
-      headers: {
-        "Content-type": "application/json; charset=UTF-8", // Indicates the content
-      },
-      body: JSON.stringify({
-        codigo: inputCodigo,
-        descricao: inputDescricao,
-        preco: inputPreco,
-        data_cadastro: inputData,
-      }),
-    });
-    const dados = await res.json();
-    return dados;
-  };
 
   return (
     <div>
@@ -153,18 +147,22 @@ function Table() {
       >
         <div>
           <input
+            placeholder="código"
             value={inputCodigo}
             onChange={(e) => setInputCodigo(e.target.value)}
           ></input>
           <input
+            placeholder="descrição"
             value={inputDescricao}
             onChange={(e) => setInputDescricao(e.target.value)}
           ></input>
           <input
+            placeholder="preço"
             value={inputPreco}
             onChange={(e) => setInputPreco(e.target.value)}
           ></input>
           <input
+            placeholder="YYYY-MM-DD"
             value={inputData}
             onChange={(e) => setInputData(e.target.value)}
           ></input>
@@ -201,6 +199,7 @@ function Table() {
       <div>
         <button onClick={() => editar(false)}>Cadastrar novo produto</button>
       </div>
+      {error && <p style={{ color: "red" }}>Ocorreu um erro</p>}
     </div>
   );
 }
