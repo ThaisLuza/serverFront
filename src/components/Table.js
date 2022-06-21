@@ -58,7 +58,6 @@ function Table() {
     } else {
       setErro(false);
     }
-    // console.log(data.some((c) => c.codigo === parseInt(inputCodigo)))
   }, [inputCodigo, inputDescricao, inputPreco]);
 
   const editar = async (item) => {
