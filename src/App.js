@@ -1,5 +1,6 @@
 import Header from './components/Header';
 import Table from './components/Table';
+import '../src/App.css'
 
 function App() {
   return (

@@ -10,11 +10,13 @@ const customStyles = {
     bottom: "auto",
     marginRight: "-50%",
     transform: "translate(-50%, -50%)",
+    padding: "50px",
   },
 };
 
 function Table() {
   const [data, setData] = useState([]);
+  console.log(data)
   const [error, setError] = useState(false);
   const [modalIsOpen, setIsOpen] = useState(false);
   const [modalIsOpenInput, setIsOpenInput] = useState(false);
@@ -24,7 +26,13 @@ function Table() {
   const [inputCodigo, setInputCodigo] = useState();
   const [inputDescricao, setInputDescricao] = useState();
   const [inputPreco, setInputPreco] = useState();
-  const [inputData, setInputData] = useState();
+  const [erro, setErro] = useState(false);
+
+  const dadosParaSalvar = {
+    codigo: inputCodigo,
+    descricao: inputDescricao,
+    preco: inputPreco,
+  };
 
   const getData = async () => {
     const res = await axios.get("http://localhost:4000/products");
@@ -37,13 +45,29 @@ function Table() {
     getData();
   }, []);
 
+  useEffect(() => {
+    if (!inputCodigo || !inputDescricao || !inputPreco) {
+      setErro(true);
+    } else if (
+      typeof parseInt(inputCodigo) != "number" ||
+      typeof parseInt(inputPreco) != "number" ||
+      data.some((c) => c.codigo === parseInt(inputCodigo))
+    ) {
+      setErro(true);
+    } else if (typeof inputDescricao != "string") {
+      setErro(true);
+    } else {
+      setErro(false);
+    }
+    // console.log(data.some((c) => c.codigo === parseInt(inputCodigo)))
+  }, [inputCodigo, inputDescricao, inputPreco]);
+
   const editar = async (item) => {
     if (!item) {
       setSelectedToEdit("");
       setIsOpenInput(true);
       setInputDescricao("");
       setInputCodigo("");
-      setInputData("");
       setInputPreco("");
       setIsNew(true);
     } else {
@@ -52,41 +76,26 @@ function Table() {
       setIsOpenInput(true);
       setInputDescricao(item.descricao);
       setInputCodigo(item.codigo);
-      setInputData(
-        item.data_cadastro.slice(0, item.data_cadastro.indexOf("T"))
-      );
       setInputPreco(item.preco);
     }
   };
 
-  const salvar = () => {
-    const dadosParaSalvar = {
-      codigo: inputCodigo,
-      descricao: inputDescricao,
-      preco: inputPreco,
-      data_cadastro: inputData,
-    };
+  const salvar = async () => {
     if (isNew) {
+      await axios.post(`http://localhost:4000/products/`, dadosParaSalvar);
+      getData();
+      setIsOpenInput(false);
+    } else {
       axios
-        .post(`http://localhost:4000/products/`, dadosParaSalvar)
+        .put(
+          `http://localhost:4000/products/${selectedToEdit.id}`,
+
+          dadosParaSalvar
+        )
         .then(() => {
-          const arr = [...data];
-          arr.push(dadosParaSalvar);
-          setData(arr);
+          getData();
           setIsOpenInput(false);
         });
-    } else {
-      axios.put(
-        `http://localhost:4000/products/${selectedToEdit.id}`,
-
-        dadosParaSalvar
-      ).then(()=>{
-        const arr = [...data];
-        arr[arr.indexOf(selectedToEdit)] = dadosParaSalvar
-        setIsOpenInput(false);
-        setData(arr)
-      })
-      
     }
   };
 
@@ -100,7 +109,6 @@ function Table() {
       })
       .catch((error) => {
         setError(true);
-        console.log(error);
       });
   };
 
@@ -109,16 +117,14 @@ function Table() {
       .get(`http://localhost:4000/products/${item.id}`)
       .catch((error) => {
         setError(true);
-        console.log(error);
       });
 
     setIsOpen(true);
     setDetails(dados.data);
   };
 
-
   return (
-    <div>
+    <div className="main">
       <Modal
         isOpen={modalIsOpen}
         onRequestClose={() => setIsOpen(false)}
@@ -146,7 +152,9 @@ function Table() {
         contentLabel="Example Modal"
       >
         <div>
+          <h2>Novos dados:</h2>
           <input
+            type="number"
             placeholder="código"
             value={inputCodigo}
             onChange={(e) => setInputCodigo(e.target.value)}
@@ -157,49 +165,68 @@ function Table() {
             onChange={(e) => setInputDescricao(e.target.value)}
           ></input>
           <input
+            type="number"
             placeholder="preço"
             value={inputPreco}
             onChange={(e) => setInputPreco(e.target.value)}
           ></input>
-          <input
-            placeholder="YYYY-MM-DD"
-            value={inputData}
-            onChange={(e) => setInputData(e.target.value)}
-          ></input>
-          <button onClick={() => salvar()}>Salvar</button>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {erro && (
+              <div style={{fontSize : '12px', color: "red" }} >
+                <p>Insira dados válidos:</p>
+                <p>Código e preço precisam ser números.</p>
+                <p>Códigos já existentes não são válidos.</p>
+                <p> A descrição é o nome do produto.</p>
+              </div>
+            )}
+            <button
+              style={{ color: erro ? "#dddddd" : "" }}
+              onClick={() => (erro ? "" : salvar())}
+            >
+              Salvar
+            </button>
+          </div>
         </div>
       </Modal>
-      <table>
-        <thead>
-          <tr>
-            <th>Código</th>
-            <th>Descrição</th>
-          </tr>
-        </thead>
+      {data.length !== 0 ? (
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Descrição</th>
+            </tr>
+          </thead>
 
-        <tbody>
-          {data &&
-            data.map((item, key) => (
-              <tr key={key}>
-                <td>{item.codigo}</td>
-                <td>{item.descricao}</td>
-                <td>
-                  <button onClick={() => editar(item)}>Editar</button>
-                </td>
-                <td>
-                  <button onClick={() => excluir(item)}>Deletar</button>
-                </td>
-                <td>
-                  <button onClick={() => detalhes(item)}>Detalhes</button>
-                </td>
-              </tr>
-            ))}
-        </tbody>
-      </table>
-      <div>
+          <tbody>
+            {data &&
+              data.map((item, key) => (
+                <tr key={key}>
+                  <td>{item.codigo}</td>
+                  <td>{item.descricao}</td>
+                  <td>
+                    <button onClick={() => editar(item)}>Editar</button>
+                  </td>
+                  <td>
+                    <button onClick={() => excluir(item)}>Deletar</button>
+                  </td>
+                  <td>
+                    <button onClick={() => detalhes(item)}>Detalhes</button>
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      ) : (
+        <p>Nenhum produto cadastrado</p>
+      )}
+      <div id="cadastro">
         <button onClick={() => editar(false)}>Cadastrar novo produto</button>
       </div>
-      {error && <p style={{ color: "red" }}>Ocorreu um erro</p>}
+      {error && (
+        <p style={{ color: "red" }}>
+          Ocorreu um erro, por favor atualize a página.
+        </p>
+      )}
     </div>
   );
 }
