@@ -16,7 +16,6 @@ const customStyles = {
 
 function Table() {
   const [data, setData] = useState([]);
-  console.log(data)
   const [error, setError] = useState(false);
   const [modalIsOpen, setIsOpen] = useState(false);
   const [modalIsOpenInput, setIsOpenInput] = useState(false);
